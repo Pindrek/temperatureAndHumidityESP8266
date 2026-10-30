@@ -3,8 +3,8 @@
 #include <ESP8266WebServer.h>
 #include <Servo.h>
 
-const char* ssid = "";
-const char* password = "";
+const char* ssid = "dmd4122";
+const char* password = "88u54w255b";
 
 ESP8266WebServer server(80);
 
@@ -15,6 +15,12 @@ float humidity = NAN;
 
 unsigned long lastReadTime;
 const unsigned short readInterval = 1000;
+
+bool rotate;
+unsigned long rotateTime;
+bool start = false;
+
+int timeout;
 
 String webpage = R"rawliteral(
 
@@ -55,7 +61,7 @@ String webpage = R"rawliteral(
         border-radius: 10px;
         position: relative;
         top: 22vh;
-        color: white;
+        color: solid black;
         align-item: center;
         border: 3px solid black;
         font-size: 40px;
@@ -86,17 +92,17 @@ String webpage = R"rawliteral(
 
     <script defer>
 
-      let rotate = false;
+      let start = false;
 
       async function buttonFunc() {
         const button = document.getElementById("button");
       
-        rotate = !rotate;
+        start = !start;
 
-        button.textContent = rotate ? "ON" : "OFF";
-        button.style.backgroundColor = rotate ? "green" : "red";
+        button.textContent = start ? "OFF" : "ON";
+        button.style.backgroundColor = start ? "green" : "red";
 
-        const response = await fetch(`api/servo?rotate=${rotate}`);
+        await fetch(`/api/servo?start=${start}`);
       }
 
       async function updateSensorData() {
@@ -164,8 +170,11 @@ void readSensor() {
 }
 
 void handleServoAPI() {
-  bool rotate = server.arg("rotate") == "true";
-  servo.write(rotate ? 60 : 90);
+  rotate = true;
+  start = server.arg("start") == "true";
+  timeout = start ? 300 : 321;
+  rotateTime = millis();
+  servo.write(start ? 50 : 130);
   server.send(200, "text/plain", "Received: " + String(rotate));
  }
 
@@ -192,8 +201,6 @@ void setup() {
   server.on("/api/servo", HTTP_GET, handleServoAPI);
   server.begin();
 
-  Serial.println("HTTP server started");
-
   readSensor();
   lastReadTime = millis();
 
@@ -207,5 +214,10 @@ void loop() {
   if (currentTime - lastReadTime >= readInterval) {
     lastReadTime = currentTime;
     readSensor();
+  }
+
+  if (rotate && millis() - rotateTime > timeout) {
+    servo.write(90);
+    rotate = false;
   }
 }
